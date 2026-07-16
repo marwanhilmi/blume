@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import type { ComponentMarkdown } from "../ai/component-markdown.ts";
+import type { CodeTheme } from "../markdown/themes.ts";
 import { normalizeRoute } from "../openapi/references.ts";
 import { normalizeXHandle } from "../seo/x-handle.ts";
 import { FONT_SLUGS, isFontSlug } from "../theme/fonts.ts";
@@ -901,9 +902,17 @@ const githubConfigSchema = z.strictObject({
   repo: z.string(),
 });
 
+const customCodeThemeSchema = z.custom<Exclude<CodeTheme, string>>(
+  (value) =>
+    typeof value === "object" && value !== null && !Array.isArray(value),
+  "Expected a Shiki theme name or custom theme object"
+);
+
+const codeThemeSchema = z.union([z.string(), customCodeThemeSchema]);
+
 const codeBlockThemeSchema = z.strictObject({
-  dark: z.string().default("github-dark"),
-  light: z.string().default("github-light"),
+  dark: codeThemeSchema.default("github-dark"),
+  light: codeThemeSchema.default("github-light"),
 });
 
 const codeBlocksConfigSchema = z.strictObject({

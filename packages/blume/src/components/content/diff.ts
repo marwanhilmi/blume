@@ -10,11 +10,12 @@
  */
 import { readFile } from "node:fs/promises";
 
+import { registerCustomTheme } from "@pierre/diffs";
 import { preloadDiffHTML, preloadPatchDiff } from "@pierre/diffs/ssr";
 import { isAbsolute, join } from "pathe";
 
 import { DEFAULT_CODE_THEMES } from "../../markdown/themes.ts";
-import type { CodeThemes } from "../../markdown/themes.ts";
+import type { CodeTheme, CodeThemes } from "../../markdown/themes.ts";
 
 export interface DiffOptions {
   /** Path to the "after" file, resolved relative to {@link DiffOptions.root}. */
@@ -46,6 +47,35 @@ const resolvePath = (path: string, root: string): string =>
 const readText = (path: string, root: string): Promise<string> =>
   readFile(resolvePath(path, root), "utf-8");
 
+const registeredDiffThemes = new WeakMap<object, string>();
+let nextDiffThemeId = 0;
+
+/**
+ * Pierre accepts custom Shiki themes through its registry, while Shiki itself
+ * accepts the object directly. Register each configured object once and give
+ * the diff renderer the corresponding name.
+ */
+const diffThemeName = (theme: CodeTheme, mode: "dark" | "light"): string => {
+  if (typeof theme === "string") {
+    return theme;
+  }
+  const cached = registeredDiffThemes.get(theme);
+  if (cached) {
+    return cached;
+  }
+  const name = `blume-custom-${mode}-${nextDiffThemeId}`;
+  nextDiffThemeId += 1;
+  const registered = { ...theme, name, type: theme.type ?? mode };
+  registerCustomTheme(name, () => Promise.resolve(registered));
+  registeredDiffThemes.set(theme, name);
+  return name;
+};
+
+const diffThemes = (themes: CodeThemes): { dark: string; light: string } => ({
+  dark: diffThemeName(themes.dark, "dark"),
+  light: diffThemeName(themes.light, "light"),
+});
+
 /**
  * Resolve `<Diff>` inputs to a prerendered HTML string. Throws when no input
  * group is supplied or a pair is half-specified, so the component can degrade
@@ -67,7 +97,7 @@ export const renderDiff = async (options: DiffOptions): Promise<string> => {
   if (patch !== undefined || src !== undefined) {
     const text = patch ?? (await readText(src as string, root));
     const result = await preloadPatchDiff({
-      options: { theme },
+      options: { theme: diffThemes(theme) },
       patch: text,
     });
     return result.prerenderedHTML;
@@ -80,7 +110,7 @@ export const renderDiff = async (options: DiffOptions): Promise<string> => {
     return await preloadDiffHTML({
       newFile: { contents: await readText(after, root), name: after },
       oldFile: { contents: await readText(before, root), name: before },
-      options: { theme },
+      options: { theme: diffThemes(theme) },
     });
   }
 
@@ -91,7 +121,7 @@ export const renderDiff = async (options: DiffOptions): Promise<string> => {
     return await preloadDiffHTML({
       newFile: { contents: newText, lang, name: "snippet" },
       oldFile: { contents: old, lang, name: "snippet" },
-      options: { disableFileHeader: true, theme },
+      options: { disableFileHeader: true, theme: diffThemes(theme) },
     });
   }
 

@@ -857,6 +857,28 @@ describe("highlightCode", () => {
     // colors do), so a different dark theme must change the emitted markup.
     expect(custom).not.toBe(byDefault);
   });
+
+  it("highlights with an inline custom Shiki theme", async () => {
+    const html = await highlightCode("const x = 1;", "ts", {
+      themes: {
+        dark: {
+          colors: {
+            "editor.background": "#010203",
+            "editor.foreground": "#fefefe",
+          },
+          name: "acme-dark",
+          tokenColors: [
+            { scope: ["keyword"], settings: { foreground: "#abcdef" } },
+          ],
+          type: "dark",
+        },
+        light: "github-light",
+      },
+    });
+
+    expect(html).toContain("--shiki-dark-bg:#010203");
+    expect(html).toContain("--shiki-dark:#ABCDEF");
+  });
 });
 
 describe("headingAnchorPlugin (frontmatter interpolation)", () => {

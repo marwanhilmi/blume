@@ -39,6 +39,28 @@ describe("renderDiff", () => {
     expect(html).toContain("newInline");
   });
 
+  it("renders with inline custom Shiki themes", async () => {
+    const html = await renderDiff({
+      lang: "ts",
+      new: "let value = 2;",
+      old: "const value = 1;",
+      theme: {
+        dark: {
+          colors: {
+            "editor.background": "#010203",
+            "editor.foreground": "#fefefe",
+          },
+          name: "acme-diff-dark",
+          tokenColors: [],
+          type: "dark",
+        },
+        light: "github-light",
+      },
+    });
+
+    expect(html).toContain("#010203");
+  });
+
   it("renders before/after file paths (absolute)", async () => {
     const html = await renderDiff({
       after: join(root, "after.ts"),
